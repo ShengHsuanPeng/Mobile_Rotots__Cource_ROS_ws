@@ -1,0 +1,19 @@
+<launch>
+	<!--map file-->
+	<arg name="map_file" default="$(find lab4)/map/lab4_map.yaml"/>
+
+	<!--map_server (change topic to map_raw)-->
+	<node pkg="map_server" name="map_server" type="map_server" args="$(arg map_file)">
+		<remap from="map" to="map_raw"/>
+	</node>	
+	
+	<!--lab4 node-->
+	<node pkg="lab4" name="map_cal" type="map_cal"/>
+	<node pkg="lab4" name="map_astar" type="map_astar" output="screen"/>
+	<node pkg="lab4" name="tf_pub" type="tf_pub"/>
+	<node pkg="lab4" name="nav" type="nav"/>
+	
+	<!--Rviz-->
+	<node pkg="rviz" name="rviz" type="rviz"/>
+
+</launch>
