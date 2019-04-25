@@ -36,7 +36,7 @@ void move()
 		error_orientation = error_orientation + 2*PI;
 
 	if(error_orientation != 0)
-		command.linear.x = (0.1/(abs(error_orientation)))*error_distance;
+		command.linear.x = (0.005/(abs(error_orientation)))*error_distance;
 	else
 		command.linear.x = Kp_d*error_distance;
 
