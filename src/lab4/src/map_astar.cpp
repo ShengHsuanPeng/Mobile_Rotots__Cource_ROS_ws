@@ -4,6 +4,7 @@
 #include "geometry_msgs/Point.h"
 #include "math.h"
 #include "stdlib.h"
+#include <cmath>
 #include <queue>
 #include <vector>
 #include <list>
@@ -41,7 +42,7 @@ struct position
 };
 
 int HeuristicCost(position pos) {
-	return (int)(100*(abs(pos.x-x_goal)+abs(pos.y-y_goal)));
+	return (int)round(100.0*(fabs(pos.x-x_goal)+fabs(pos.y-y_goal)));
 }
 
 struct map_astar // map information for A* 
@@ -111,8 +112,12 @@ void Posecallback(const nav_msgs::Odometry &situation){
 
 vector<succesor> GetSuccessors(position pos) {
 	vector<succesor> successors;//ROS_INFO("107");
-	int X = (int)((pos.x+5)*10);
-	int Y = (int)((pos.y+5)*10);
+	int X = (int)round(pos.x*10.0+50.0);
+	int Y = (int)round(pos.y*10.0+50.0);
+	position pp = {-3.9,-3};
+	if(pp == pos) {
+		ROS_INFO("pp X%d Y%d",X,Y);
+	}
 	for (int i=-1+Y;i<=1+Y;i++) {
 		for (int j=-1+X;j<=1+X;j++) {
 			if (i==Y&&j==X)
@@ -138,7 +143,7 @@ vector<succesor> GetSuccessors(position pos) {
 
 
 int ManhattanDist(int X, int Y, int X_end, int Y_end) {
-	return 100*(abs(X-X_end)+abs(Y-Y_end));
+	return round(100.0*(fabs(X-X_end)+fabs(Y-Y_end)));
 }
 
 vector<position> AStar() {
@@ -217,7 +222,7 @@ int main(int argc, char * argv[]) {
 	
 	ros::Publisher pub = ns.advertise<geometry_msgs::Point>("/subgoal_position", 10);
 	ros::Subscriber sub = ns.subscribe("/map", 1, Mapcallback);
-	//ros::Subscriber sub2 = ns.subscribe("/robot_pose", 10, Posecallback);
+	ros::Subscriber sub2 = ns.subscribe("/robot_pose", 10, Posecallback);
 	x_now = -3;
 	y_now = 3;
 	pos_rec=true;
@@ -253,22 +258,21 @@ int main(int argc, char * argv[]) {
 						continue;
 					}
 					step = 0;
-					x_now=x_goal;
-					y_now=y_goal;
 				}
 			}
 			
 			position pos = action[step];
 			if (pos==current) {
 				step++;
+				ROS_INFO("go to x%.1lf y%.1lf, goal%.1lf %.1lf, now%.3lf %.3lf", subgoal_pos.x,subgoal_pos.y, x_goal,y_goal,x_now,y_now);
+		
 			}
 
 			subgoal_pos.x = pos.x;
 			subgoal_pos.y = pos.y;
-			//ROS_INFO("go to x%lf y%lf, goal%lf %lf", subgoal_pos.x,subgoal_pos.y, x_goal,y_goal);
 		}
 
-		//pub.publish(subgoal_pos);
+		pub.publish(subgoal_pos);
 
 		rate.sleep();	
 	}
