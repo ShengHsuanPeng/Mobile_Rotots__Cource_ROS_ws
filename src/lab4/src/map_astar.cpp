@@ -2,8 +2,9 @@
 #include "nav_msgs/OccupancyGrid.h"
 #include "nav_msgs/Odometry.h"
 #include "geometry_msgs/Point.h"
+#include "geometry_msgs/PoseStamped.h"
+#include "tf/tf.h"
 #include "math.h"
-#include "stdlib.h"
 #include <cmath>
 #include <queue>
 #include <vector>
@@ -16,7 +17,7 @@ float y_now = 3;
 float th_now = 0;
 float x_goal = -3;	//default
 float y_goal = 3;
-float th_goal;
+float th_goal = 0;
 bool pos_rec = 0;
 bool map_rec = 0;
 int width;
@@ -26,6 +27,10 @@ int height;
 int* map_data;
 
 geometry_msgs::Point subgoal_pos;
+
+const float PI = 3.14159265358979323;
+
+geometry_msgs::Quaternion odom_quat;
 
 
 
@@ -69,6 +74,17 @@ struct succesor
 	position pos;
 	int cost;
 };
+
+void GoalCallback(const geometry_msgs::PoseStamped &msg)
+{
+	x_goal = msg.pose.position.x;					//unit: m
+	y_goal = msg.pose.position.y;					//unit: m
+	odom_quat = msg.pose.orientation;			//quaternoin
+
+	th_goal = tf::getYaw(odom_quat);			//theta is transformed from quaternion to rpy. unit: rad(-PI~PI)
+	
+	ROS_INFO("x: %.3f /t y: %.3f /t th: %.3f",x_goal,y_goal,th_goal);
+}
 
 void Mapcallback(const nav_msgs::OccupancyGrid &msg) {
 	
@@ -168,7 +184,7 @@ vector<position> AStar() {
 		}
 
 		if (pos == goal_state) {
-			ROS_INFO("Path Found");
+			//ROS_INFO("Path Found");
 			return action;
 		} else {
 			closed_set.push_back(pos);
@@ -196,40 +212,24 @@ int main(int argc, char * argv[]) {
 	ros::Publisher pub = ns.advertise<geometry_msgs::Point>("/subgoal_position", 10);
 	ros::Subscriber sub = ns.subscribe("/map", 1, Mapcallback);
 	ros::Subscriber sub2 = ns.subscribe("/robot_pose", 10, Posecallback);
+	ros::Subscriber sub3 = ns.subscribe("/move_base_simple/goal", 10, GoalCallback);
+
 	x_now = -3;
 	y_now = 3;
-	pos_rec=true;
 	
 	ros::Rate rate(10);
 	
-	list<position> goals;
-	position goal1={3.0,4.0}, goal2={3.0,-2.0}, goal3={-4.0,-3.0}, goal4={-3.0,-3.0};
-	goals.push_back(goal1);
-	goals.push_back(goal2);
-	goals.push_back(goal3);
-	goals.push_back(goal4);
 	vector<position> action;
-	int step=0;
 
 	while (ros::ok()){
 			
 		ros::spinOnce();    // Allow processing of incoming messages
 
 		if (pos_rec && map_rec) {
-			position current = {x_now, y_now};
-			position goal_state = {x_goal, y_goal};
-			if(current == goal_state) {
-				if (!goals.empty()) {
-					x_goal = goals.front().x;
-					y_goal = goals.front().y;
 
-					ROS_INFO("NEW Target x%lf, y%lf",x_goal,y_goal);
-					goals.pop_front();
-				}
-			}
 			action = AStar();
 			if(action.empty()) {
-				ROS_INFO("No Path");
+				//ROS_INFO("No Path");
 				continue;
 			}
 			
