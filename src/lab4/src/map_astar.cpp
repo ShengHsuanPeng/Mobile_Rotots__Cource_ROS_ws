@@ -21,8 +21,7 @@ bool pos_rec = 0;
 bool map_rec = 0;
 int width;
 int height;
-bool reach_goal = 0;
-bool caled = false;
+
 
 int* map_data;
 
@@ -51,8 +50,7 @@ struct map_astar // map information for A*
 	vector<position> action;
 	int g_cost;
 
-	bool operator<(const map_astar &o) const
-    {
+	bool operator<(const map_astar &o) const {
         return (g_cost+HeuristicCost(pos)) > (o.g_cost+HeuristicCost(o.pos));
     }
 };
@@ -114,16 +112,14 @@ vector<succesor> GetSuccessors(position pos) {
 	vector<succesor> successors;//ROS_INFO("107");
 	int X = (int)round(pos.x*10.0+50.0);
 	int Y = (int)round(pos.y*10.0+50.0);
-	position pp = {-3.9,-3};
-	if(pp == pos) {
-		ROS_INFO("pp X%d Y%d",X,Y);
-	}
-	for (int i=-1+Y;i<=1+Y;i++) {
-		for (int j=-1+X;j<=1+X;j++) {
-			if (i==Y&&j==X)
+	int margin = 1;
+	//ROS_INFO("Getting x%lf, y%lf",pos.x,pos.y);
+	for (int i=-margin+Y;i<=margin+Y;i++) {
+		for (int j=-margin+X;j<=margin+X;j++) {
+			if (abs(i-Y)!=margin && abs(j-X)!=margin)
 				continue;
-			//if (i<0||i>height-1||j<0||j>width-1) 
-			//	continue;
+			if (i<0||i>height-1||j<0||j>width-1) 
+				continue;
 			if (map_data[i*width + j] == 0) {
 				int cost=0;
 				if(i==Y || j==X){
@@ -133,9 +129,9 @@ vector<succesor> GetSuccessors(position pos) {
 				}
 				position nodePos = {(j/10.0-5.0),(i/10.0-5.0)};
 				succesor node = {nodePos, cost};
+				//ROS_INFO("NEW SUCC x%lf, y%lf",nodePos.x,nodePos.y);
 				successors.push_back(node);
 			}
-			
 		}
 	}
 	return successors;
@@ -150,21 +146,16 @@ vector<position> AStar() {
 	priority_queue<map_astar> open_set;
 	vector<position> closed_set;
 	
-	ROS_INFO("x%lf y%lf", x_now,y_now);
 	position start_state = {x_now, y_now};
 	position goal_state = {x_goal, y_goal};
 	if (start_state == goal_state) {
-		reach_goal = true;
 		return vector<position>();
-	} else {
-		reach_goal = false;
-	}
+	} 
 
     vector<position> action;
 	map_astar node = {start_state, vector<position>(), 0};
 	open_set.push(node);
 
-	//ROS_INFO("142");
 	while (!open_set.empty()) {
 		node = open_set.top();
         open_set.pop();
@@ -172,42 +163,24 @@ vector<position> AStar() {
 		action = node.action;
 		int g_cost = node.g_cost;
 
-		if(x_goal==-3. && y_goal==-3)
-			ROS_INFO("trying x%lf y%lf g=%d f=%d", pos.x,pos.y,node.g_cost,node.g_cost+HeuristicCost(node.pos));
-			
-		//ROS_INFO("150");
 		if (find(closed_set.begin(), closed_set.end(),pos)!=closed_set.end()) {
-			if(x_goal==-3. && y_goal==-3)
-			ROS_INFO("x%lf y%lf closed", pos.x,pos.y);
 			continue;
 		}
-		//ROS_INFO("154");
+
 		if (pos == goal_state) {
 			ROS_INFO("Path Found");
-			/*for (int i = 0; i < action.size(); i++) {
-				ROS_INFO("%d: go: x%lf y%lf", i, action[i].x,action[i].y);
-			}*/
-			//exit(0);
 			return action;
 		} else {
-			//if(x_goal==-3. && y_goal==-3)
-			//ROS_INFO("x%lf y%lf closed bye", pos.x,pos.y);
 			closed_set.push_back(pos);
 		}
 		
-		//ROS_INFO("160");
 		vector<succesor> next_successors = GetSuccessors(pos);
-		//ROS_INFO("162");
 		for (int i = 0; i < next_successors.size(); i++) {
-			//ROS_INFO("163");
 			vector<position> new_action = action;
 			new_action.push_back(next_successors[i].pos);
-			position pp = {-3.9,-3};
 			
 			map_astar new_node = 
 				{next_successors[i].pos, new_action, g_cost + next_successors[i].cost};
-			if(pos==pp)
-				ROS_INFO("queuue x%lf y%lf g=%d f=%d",new_node.pos.x,new_node.pos.y,new_node.g_cost,new_node.g_cost+HeuristicCost(new_node.pos));
 
 			open_set.push(new_node);
 		}
@@ -245,31 +218,27 @@ int main(int argc, char * argv[]) {
 		if (pos_rec && map_rec) {
 			position current = {x_now, y_now};
 			position goal_state = {x_goal, y_goal};
-			if (current == goal_state) {
+			if(current == goal_state) {
 				if (!goals.empty()) {
 					x_goal = goals.front().x;
 					y_goal = goals.front().y;
 
 					ROS_INFO("NEW Target x%lf, y%lf",x_goal,y_goal);
 					goals.pop_front();
-					action = AStar();
-					if(action.empty()) {
-						ROS_INFO("No Path");
-						continue;
-					}
-					step = 0;
 				}
 			}
-			
-			position pos = action[step];
-			if (pos==current) {
-				step++;
-				ROS_INFO("go to x%.1lf y%.1lf, goal%.1lf %.1lf, now%.3lf %.3lf", subgoal_pos.x,subgoal_pos.y, x_goal,y_goal,x_now,y_now);
-		
+			action = AStar();
+			if(action.empty()) {
+				ROS_INFO("No Path");
+				continue;
 			}
-
+			
+			position pos = action[0];
+			
 			subgoal_pos.x = pos.x;
 			subgoal_pos.y = pos.y;
+			ROS_INFO("go to x%.1lf y%.1lf, goal%.1lf %.1lf, now%.3lf %.3lf", subgoal_pos.x,subgoal_pos.y, x_goal,y_goal,x_now,y_now);
+
 		}
 
 		pub.publish(subgoal_pos);
